@@ -74,10 +74,10 @@ class DataProcessor(object):
         return self._create_examples(
             self._read_json(os.path.join(data_dir, "dev.json")), "dev")
 
-    def get_test_examples(self, data_dir):
+    def get_test_examples(self, data_dir, eval_name):
         """See base class."""
         return self._create_examples(
-            self._read_json(os.path.join(data_dir, "test.json")), "test")
+            self._read_json(os.path.join(data_dir, f"{eval_name}.json")), "test")
 
     def get_labels(self, data_dir, negative_label="no_relation"):
         """See base class."""
@@ -494,20 +494,19 @@ def main(args):
                                         writer.write("%s = %s\n" % (key, str(result[key])))
 
     if args.do_eval:
-        if args.eval_test:
-            eval_examples = processor.get_test_examples(args.data_dir)
-            eval_features = convert_examples_to_features(
-                eval_examples, label2id, args.max_seq_length, tokenizer, special_tokens, args.feature_mode)
-            logger.info("***** Test *****")
-            logger.info("  Num examples = %d", len(eval_examples))
-            logger.info("  Batch size = %d", args.eval_batch_size)
-            all_input_ids = torch.tensor([f.input_ids for f in eval_features], dtype=torch.long)
-            all_input_mask = torch.tensor([f.input_mask for f in eval_features], dtype=torch.long)
-            all_segment_ids = torch.tensor([f.segment_ids for f in eval_features], dtype=torch.long)
-            all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
-            eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
-            eval_dataloader = DataLoader(eval_data, batch_size=args.eval_batch_size)
-            eval_label_ids = all_label_ids
+        eval_examples = processor.get_test_examples(args.data_dir, args.eval_name)
+        eval_features = convert_examples_to_features(
+            eval_examples, label2id, args.max_seq_length, tokenizer, special_tokens, args.feature_mode)
+        logger.info("***** Test *****")
+        logger.info("  Num examples = %d", len(eval_examples))
+        logger.info("  Batch size = %d", args.eval_batch_size)
+        all_input_ids = torch.tensor([f.input_ids for f in eval_features], dtype=torch.long)
+        all_input_mask = torch.tensor([f.input_mask for f in eval_features], dtype=torch.long)
+        all_segment_ids = torch.tensor([f.segment_ids for f in eval_features], dtype=torch.long)
+        all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
+        eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
+        eval_dataloader = DataLoader(eval_data, batch_size=args.eval_batch_size)
+        eval_label_ids = all_label_ids
         model = BertForSequenceClassification.from_pretrained(args.output_dir, num_labels=num_labels)
         if args.fp16:
             model.half()
@@ -539,7 +538,8 @@ if __name__ == "__main__":
     parser.add_argument("--train_mode", type=str, default='random_sorted', choices=['random', 'sorted', 'random_sorted'])
     parser.add_argument("--do_eval", action='store_true', help="Whether to run eval on the dev set.")
     parser.add_argument("--do_lower_case", action='store_true', help="Set this flag if you are using an uncased model.")
-    parser.add_argument("--eval_test", action="store_true", help="Whether to evaluate on final test set.")
+    # parser.add_argument("--eval_test", action="store_true", help="Whether to evaluate on final test set.")
+    parser.add_argument("--eval_name", type=str, default='test')
     parser.add_argument("--feature_mode", type=str, default="ner", choices=["text", "ner", "text_ner", "ner_text"])
     parser.add_argument("--train_batch_size", default=32, type=int,
                         help="Total batch size for training.")
